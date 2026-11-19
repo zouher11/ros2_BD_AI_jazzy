@@ -1,0 +1,14 @@
+
+# ROS 2 generated files
+build/
+install/
+log/
+
+# Python
+__pycache__/
+*.pyc
+
+# Temporary backups and Webots metadata
+*.backup*
+*.bak*
+*.wbproj

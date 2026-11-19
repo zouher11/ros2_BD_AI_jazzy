@@ -1,0 +1,243 @@
+#VRML_SIM R2025a utf8
+EXTERNPROTO "https://raw.githubusercontent.com/cyberbotics/webots/R2025a/projects/objects/backgrounds/protos/TexturedBackground.proto"
+EXTERNPROTO "https://raw.githubusercontent.com/cyberbotics/webots/R2025a/projects/objects/backgrounds/protos/TexturedBackgroundLight.proto"
+# =====================================================================
+# lab_world.wbt  —  SLAM Mapping Lab (static environment)
+# ---------------------------------------------------------------------
+# A simulated lab (~10 m x 8 m) divided into 3 rooms by internal walls
+# with doorway gaps. A mobile robot ("Go2-like" diff-drive body carrying
+# a 360 deg 2D LiDAR + a forward camera) is spawned at the entrance.
+#
+# The robot's kinematics here are differential-drive (two driven wheels +
+# a passive caster) so the world runs on any Webots install without an
+# extra proto import. To use the real Unitree Go2 quadruped, replace the
+# GO2_ROBOT Transform below with the official unitree_ros2 Go2 proto and
+# keep the LiDAR/Camera topic names — see docs/robot_swap_guide.md.
+# =====================================================================
+
+WorldInfo {
+  title "SLAM Mapping Lab"
+  coordinateSystem "NUE"
+  contactProperties [
+    ContactProperties {
+      coulombFriction [ 1.0, 0.5 ]
+      bounce 0
+    }
+  ]
+}
+
+Viewpoint {
+  orientation -0.45 0.35 0.82 2.55
+  position 2.5 5.5 3.5
+  follow "GO2_ROBOT"
+}
+
+TexturedBackground {
+}
+TexturedBackgroundLight {
+}
+
+# ---------------------------------------------------------------------
+# Floor  (10 m x 8 m, centred at origin)
+# ---------------------------------------------------------------------
+Solid {
+  translation 0 -0.05 0
+  children [
+    Shape {
+      appearance PBRAppearance {
+        baseColor 0.85 0.85 0.85
+        roughness 0.9
+      }
+      geometry Box { size 10 0.1 8 }
+    }
+  ]
+  name "floor"
+  boundingObject Box { size 10 0.1 8 }
+}
+
+# ---------------------------------------------------------------------
+# Outer walls  (height 1.2 m, thickness 0.1 m)
+# ----------------------------------------------------------------====
+
+Solid {
+  translation 0 0.6 4
+  children [ Shape { appearance DEF WALL_APPEARANCE PBRAppearance {
+  baseColor 0.55 0.55 0.6
+  roughness 0.7
+} geometry Box { size 10 1.2 0.1 } } ]
+  name "wall_north"
+  boundingObject Box { size 10 1.2 0.1 }
+}
+Solid {
+  translation 0 0.6 -4
+  children [ Shape { appearance USE WALL_APPEARANCE geometry Box { size 10 1.2 0.1 } } ]
+  name "wall_south"
+  boundingObject Box { size 10 1.2 0.1 }
+}
+Solid {
+  translation -5 0.6 0
+  children [ Shape { appearance USE WALL_APPEARANCE geometry Box { size 0.1 1.2 8 } } ]
+  name "wall_west"
+  boundingObject Box { size 0.1 1.2 8 }
+}
+Solid {
+  translation 5 0.6 0
+  children [ Shape { appearance USE WALL_APPEARANCE geometry Box { size 0.1 1.2 8 } } ]
+  name "wall_east"
+  boundingObject Box { size 0.1 1.2 8 }
+}
+
+# ---------------------------------------------------------------------
+# Internal partition A  — splits left room from centre corridor
+#   (x = -1.8, with a 1.0 m doorway gap on the +z side)
+# ---------------------------------------------------------------------
+Solid {
+  translation -1.8 0.6 -3
+  children [ Shape { appearance USE WALL_APPEARANCE geometry Box { size 0.1 1.2 2 } } ]
+  name "wall_partitionA_south"
+  boundingObject Box { size 0.1 1.2 2 }
+}
+Solid {
+  translation -1.8 0.6 1.5
+  children [ Shape { appearance USE WALL_APPEARANCE geometry Box { size 0.1 1.2 5 } } ]
+  name "wall_partitionA_north"
+  boundingObject Box { size 0.1 1.2 5 }
+}
+
+# ---------------------------------------------------------------------
+# Internal partition B  — splits centre corridor from right room
+#   (x = 1.8, with a 1.0 m doorway gap on the -z side)
+# ---------------------------------------------------------------------
+Solid {
+  translation 1.8 0.6 -1.5
+  children [ Shape { appearance USE WALL_APPEARANCE geometry Box { size 0.1 1.2 5 } } ]
+  name "wall_partitionB_south"
+  boundingObject Box { size 0.1 1.2 5 }
+}
+Solid {
+  translation 1.8 0.6 3
+  children [ Shape { appearance USE WALL_APPEARANCE geometry Box { size 0.1 1.2 2 } } ]
+  name "wall_partitionB_north"
+  boundingObject Box { size 0.1 1.2 2 }
+}
+
+# ---------------------------------------------------------------------
+# A couple of box obstacles in the centre corridor
+# ---------------------------------------------------------------------
+Solid {
+  translation 0 0.3 0
+  children [ Shape { appearance DEF BOX_APP PBRAppearance { baseColor 0.4 0.3 0.2 roughness 0.9 } geometry Box { size 0.6 0.6 0.6 } } ]
+  name "box_centre"
+  boundingObject Box { size 0.6 0.6 0.6 }
+}
+Solid {
+  translation 0 0.25 -2.4
+  children [ Shape { appearance USE BOX_APP geometry Box { size 0.5 0.5 0.5 } } ]
+  name "box_corner"
+  boundingObject Box { size 0.5 0.5 0.5 }
+}
+
+# =====================================================================
+# GO2_ROBOT  —  differential-drive body carrying LiDAR + Camera
+#   controller: go2_driver   (bridges sensors to ROS2 via webots_ros2)
+#   spawn pose: entrance of the centre corridor, facing +z (north)
+# =====================================================================
+DEF GO2_ROBOT Robot {
+  translation -1.0 0.0 -3.4
+  rotation 0 1 0 0
+  controller "<extern>"
+  controllerArgs [ "--use-sim-time" ]
+  children [
+
+    # body
+    Transform {
+      translation 0 0.16 0
+      children [ Shape {
+        appearance PBRAppearance { baseColor 0.15 0.15 0.18 roughness 0.4 metalness 0.6 }
+        geometry Box { size 0.40 0.20 0.50 }
+      } ]
+    }
+
+    # 360 deg 2D LiDAR on top  ->  /scan  (sensor_msgs/LaserScan)
+    Lidar {
+      translation 0 0.30 0
+      rotation 0.577350269 0.577350269 0.577350269 -2.094395103
+      name "lidar"
+      horizontalResolution 360
+      fieldOfView 6.28318530718
+      verticalFieldOfView 0.1
+      numberOfLayers 1
+      resolution 0.05
+      minRange 0.12
+      maxRange 12.0
+      noise 0.01
+    }
+
+    # forward camera  ->  /camera/image_raw  (sensor_msgs/Image)
+    Camera {
+      translation 0 0.22 0.29
+      rotation 0.577350269 0.577350269 0.577350269 -2.094395103
+      name "camera"
+      fieldOfView 1.0472
+      width 640
+      height 480
+      noise 0.02
+    }
+
+    # left driven wheel
+    HingeJoint {
+      jointParameters HingeJointParameters { axis 1 0 0 anchor 0.18 0.05 0 }
+      device [
+        RotationalMotor { name "left_wheel_motor" maxVelocity 5.0 }
+        PositionSensor { name "left_wheel_sensor" }
+      ]
+      endPoint Solid {
+        translation 0.18 0.05 0
+        rotation 0 1 0 1.570796327
+        children [ Shape {
+          appearance PBRAppearance { baseColor 0.05 0.05 0.05 roughness 0.9 }
+          geometry Cylinder { height 0.04 radius 0.05 }
+        } ]
+        name "left_wheel"
+        boundingObject Cylinder { height 0.04 radius 0.05 }
+        physics Physics { density -1 mass 0.3 }
+      }
+    }
+
+    # right driven wheel
+    HingeJoint {
+      jointParameters HingeJointParameters { axis 1 0 0 anchor -0.18 0.05 0 }
+      device [
+        RotationalMotor { name "right_wheel_motor" maxVelocity 5.0 }
+        PositionSensor { name "right_wheel_sensor" }
+      ]
+      endPoint Solid {
+        translation -0.18 0.05 0
+        rotation 0 1 0 1.570796327
+        children [ Shape {
+          appearance PBRAppearance { baseColor 0.05 0.05 0.05 roughness 0.9 }
+          geometry Cylinder { height 0.04 radius 0.05 }
+        } ]
+        name "right_wheel"
+        boundingObject Cylinder { height 0.04 radius 0.05 }
+        physics Physics { density -1 mass 0.3 }
+      }
+    }
+
+    # passive caster at the back
+    Solid {
+      translation 0 0.04 -0.18
+      children [ Shape {
+        appearance PBRAppearance { baseColor 0.2 0.2 0.2 }
+        geometry Sphere { radius 0.04 }
+      } ]
+      name "rear_caster"
+      boundingObject Sphere { radius 0.04 }
+    }
+  ]
+  boundingObject Transform {
+    translation 0 0.16 0
+    children [ Box { size 0.40 0.20 0.50 } ]
+  }
+  physics Physics { density -1 mass 6.0 }
+}
